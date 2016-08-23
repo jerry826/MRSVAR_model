@@ -367,7 +367,9 @@ adjust_weight <- function(perf,qu=0.05,type=1){
 }
 
 
-
+ret_analysis <- function(ret,freq='w'){
+  
+}
 
 
 perf_analysis <- function(weight,asset_ret,cost=0.001,freq='w'){
@@ -429,10 +431,11 @@ weight_cal <- function(h){
   last_weight <- rep(0, dim(h[[1]])[1])
   for (i in 1:n) {
     print('-----------------------------------------------------------')
+    print(i)
     if (i > 1){
-      opt_weight = weight_optimizer_3(h[[i]])
+      opt_weight = weight_optimizer(h[[i]],rep(0,dim(h[[1]])[1]),f3)
       while (sum(abs(opt_weight-last_weight))>0.30){
-      opt_weight = weight_optimizer_3(h[[i]])
+      opt_weight = weight_optimizer(h[[i]],rep(0,dim(h[[1]])[1]),f3)
       print(i)
       print(opt_weight)
       print(last_weight)
@@ -441,7 +444,7 @@ weight_cal <- function(h){
       weight[i,] <- opt_weight
       last_weight <- opt_weight
     }else{
-      opt_weight <- weight_optimizer_3(h[[i]])
+      opt_weight <- weight_optimizer(h[[i]],rep(0,dim(h[[1]])[1]),f3)
       weight[i,] <- opt_weight
       last_weight <- opt_weight
       
