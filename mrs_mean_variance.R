@@ -1,44 +1,44 @@
-source('C:\\Users\\lvjia\\Google ÔÆ¶ËÓ²ÅÌ\\ÑĞÒ»Êî¼Ù\\bd quant research\\´óÀà×Ê²úÅäÖÃ\\code\\MRS.R')
+source('MRS.R')
 
 
 
 # Markow state VAR model
 w.start()
-# ÉèÖÃÊ±¼ä±äÁ¿
+# è®¾ç½®æ—¶é—´å˜é‡
 start <- '2005-02-01'
 end <- '2016-08-16'
 mid <- '2013-08-01'
 freqs <- 'w'
 
-# ÉèÖÃ×Ê²ú³Ø
+# è®¾ç½®èµ„äº§æ± 
 assets <- c('000300.SH','000905.SH','037.CS')
 assets <- c('000300.SH','000905.SH','037.CS','AU9999.SGE')
 
 
 
-# ÌáÈ¡Êı¾İ 
+# æå–æ•°æ® 
 ret_all <- collect_data(assets,start,end,mid,freqs)
 
-# ÉèÖÃÄ£ĞÍ±äÁ¿
-p <- 1 # ÖÍºó½×Êı
-h <- 6 # ×´Ì¬¸öÊı 
-# ÑµÁ·Ä£ĞÍ
+# è®¾ç½®æ¨¡å‹å˜é‡
+p <- 1 # æ»åé˜¶æ•°
+h <- 6 # çŠ¶æ€ä¸ªæ•° 
+# è®­ç»ƒæ¨¡å‹
 result <- mrs_model(ret_all$train,p,h)
 
 
-# rr <- mrs_model(ret$train) # Ñù±¾ÄÚÑéÖ¤
+# rr <- mrs_model(ret$train) # æ ·æœ¬å†…éªŒè¯
 
-# Ä£ĞÍÈ¨ÖØ×îÓÅ»¯
+# æ¨¡å‹æƒé‡æœ€ä¼˜åŒ–
 perf <- mrs_predict(result,ret_all$test,ret_all$train,h,1)
 
-# ²ÖÎ»ÔÙÓÅ»¯
+# ä»“ä½å†ä¼˜åŒ–
 weight2 <- adjust_weight(perf)
 
-# ±íÏÖ·ÖÎö
+# è¡¨ç°åˆ†æ
 n <- dim(ret_all$test)[1]
-## È¡2:nÆÚµÄÊı¾İ
+## å–2:næœŸçš„æ•°æ®
 asset_ret <- ret_all$test[2:n]
-## ·ÖÎö
+## åˆ†æ
 perf_analysis(weight2$weight_adj,asset_ret ,cost=0.001,freq=freqs)
 
 plot.zoo(result$p)

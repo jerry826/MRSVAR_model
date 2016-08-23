@@ -12,12 +12,12 @@ library(vars)
 library(fBasics)
 
 collect_data <- function(assets,start='2010-01-01',end='2016-08-16',mid='2015-01-01',freq='w'){
-  # »ñÈ¡×Ê²úÊÕÒæÂÊÐòÁÐ
-  # assets: ×Ê²ú´úÂëÐòÁÐ
-  # start:  ÑµÁ·¼¯ÆðÊ¼ÈÕÆÚ
-  # end:    ²âÊÔ¼¯½áÊøÈÕÆÚ
-  # mid:    ÑµÁ·¼¯¡¢²âÊÔ¼¯¼ä¸ôµã
-  # freq:   Êý¾ÝÆµÂÊ£¬w´ú±íÖÜ£¬m´ú±íÔÂ£¬d´ú±íÈÕ
+  # èŽ·å–èµ„äº§æ”¶ç›ŠçŽ‡åºåˆ—
+  # assets: èµ„äº§ä»£ç åºåˆ—
+  # start:  è®­ç»ƒé›†èµ·å§‹æ—¥æœŸ
+  # end:    æµ‹è¯•é›†ç»“æŸæ—¥æœŸ
+  # mid:    è®­ç»ƒé›†ã€æµ‹è¯•é›†é—´éš”ç‚¹
+  # freq:   æ•°æ®é¢‘çŽ‡ï¼Œwä»£è¡¨å‘¨ï¼Œmä»£è¡¨æœˆï¼Œdä»£è¡¨æ—¥
   for (i in 1:length(assets)){
     raw_data <- (w.wsd(assets[i],"pre_close,open,high,low,close",start,end))$Data
     if (i == 1){
@@ -28,42 +28,42 @@ collect_data <- function(assets,start='2010-01-01',end='2016-08-16',mid='2015-01
     }
   }
   dataset <- xts(s,time)
-  # Êý¾ÝÖØÕû
+  # æ•°æ®é‡æ•´
   if (freq=='w'){
     dataset <- apply.weekly(dataset,last)
   }else if (freq=='m'){ 
     dataset <- apply.monthly(dataset,last)
   }
-  # ¼ÆËãÊÕÒæÂÊ
+  # è®¡ç®—æ”¶ç›ŠçŽ‡
   ret <- ROC(dataset)
   ret <- ret[2:dim(ret)[1]]
-  # ÑµÁ·¡¢²âÊÔ¼¯»®·Ö
+  # è®­ç»ƒã€æµ‹è¯•é›†åˆ’åˆ†
   train <- ret[paste(start,mid,sep='/')]
   test <- ret[paste(mid,end,sep='/')]
   return(list(train=train,test=test) )
 }
 
 mrs_model <- function(ret,rlag=1,h=5){
-  # ÊäÈë¶àÔªÊ±¼äÐòÁÐ£¬ÑµÁ·Ä£ÐÍ
-  # p: VARÄ£ÐÍÖÍºó½×Êý
-  # h: MarkovÒþ×´Ì¬ÊýÁ¿
+  # è¾“å…¥å¤šå…ƒæ—¶é—´åºåˆ—ï¼Œè®­ç»ƒæ¨¡åž‹
+  # p: VARæ¨¡åž‹æ»žåŽé˜¶æ•°
+  # h: MarkovéšçŠ¶æ€æ•°é‡
   
   model <- msvar(ret,p=rlag,h=h)
-  var_beta <- model$hreg$Bk      # beta 5*4                                 VAR²ÎÊý¹À¼Æ
-  cov_error <- model$hreg$Sigmak # the covariance matrix of residuals 4*4   ²Ð²îÐ­·½²î¾ØÕó
-  error <- model$hreg$e          # errors 1607*4*5                          ²Ð²î
-  p <- model$fp                  # 1607*5                                   ×´Ì¬¸ÅÂÊ  
-  q <- model$Q                   # 5*5                                      ×´Ì¬×ªÒÆ¸ÅÂÊ¾ØÕó
+  var_beta <- model$hreg$Bk      # beta 5*4                                 VARå‚æ•°ä¼°è®¡
+  cov_error <- model$hreg$Sigmak # the covariance matrix of residuals 4*4   æ®‹å·®åæ–¹å·®çŸ©é˜µ
+  error <- model$hreg$e          # errors 1607*4*5                          æ®‹å·®
+  p <- model$fp                  # 1607*5                                   çŠ¶æ€æ¦‚çŽ‡  
+  q <- model$Q                   # 5*5                                      çŠ¶æ€è½¬ç§»æ¦‚çŽ‡çŸ©é˜µ
   return(list(var_beta=var_beta,cov_error=cov_error,error=error,p=p,q=q,h=h,lag=rlag))
 }
 
 insample_mv_validation <- function(result,ret,h){
-  # Ñù±¾ÄÚ¾ùÖµ±íÏÖÑéÖ¤
+  # æ ·æœ¬å†…å‡å€¼è¡¨çŽ°éªŒè¯
   # result:
   #
   ret <- ret$train
   h <- result$h
-  # ³õÊ¼»¯
+  # åˆå§‹åŒ–
   weight <- c()
   ret_s <- c()
   # 
@@ -101,10 +101,10 @@ insample_mv_validation <- function(result,ret,h){
 
 
 cal_func_1 <- function(w,S,r){
-  # ¼ÆËã·çÏÕÊÕÒæ±È
-  # w:×Ê²úÈ¨ÖØ
-  # S:×Ê²úÊÕÒæÂÊÐ­·½²î
-  # r:×Ê²úÊÕÒæÂÊ¾ùÖµ
+  # è®¡ç®—é£Žé™©æ”¶ç›Šæ¯”
+  # w:èµ„äº§æƒé‡
+  # S:èµ„äº§æ”¶ç›ŠçŽ‡åæ–¹å·®
+  # r:èµ„äº§æ”¶ç›ŠçŽ‡å‡å€¼
   p_r <- w%*%r
   p_std <- sqrt(t(w)%*%S%*%w)
   s <- p_r/p_std
@@ -112,10 +112,10 @@ cal_func_1 <- function(w,S,r){
 }
 
 cal_func_2 <- function(w,S,r){
-  # ¼ÆËã·çÏÕµ÷ÕûºóµÄÊÕÒæ
-  # w:×Ê²úÈ¨ÖØ
-  # S:×Ê²úÊÕÒæÂÊÐ­·½²î
-  # r:×Ê²úÊÕÒæÂÊ¾ùÖµ  
+  # è®¡ç®—é£Žé™©è°ƒæ•´åŽçš„æ”¶ç›Š
+  # w:èµ„äº§æƒé‡
+  # S:èµ„äº§æ”¶ç›ŠçŽ‡åæ–¹å·®
+  # r:èµ„äº§æ”¶ç›ŠçŽ‡å‡å€¼  
   p_r <- w%*%r
   p_var <- (t(w)%*%S%*%w)
   adj_ret <- p_r-0.5*p_var
@@ -123,9 +123,9 @@ cal_func_2 <- function(w,S,r){
 }
 
 cal_func_3 <-function(w,S){
-  # ¼ÆËã¸÷×Ê²ú¶Ô×éºÏµÄ·çÏÕ¹±Ï×¶È
-  # w:×Ê²úÈ¨ÖØ
-  # S:×Ê²úÊÕÒæÂÊÐ­·½²î
+  # è®¡ç®—å„èµ„äº§å¯¹ç»„åˆçš„é£Žé™©è´¡çŒ®åº¦
+  # w:èµ„äº§æƒé‡
+  # S:èµ„äº§æ”¶ç›ŠçŽ‡åæ–¹å·®
   n <- length(w)
   sigma_ij <- diag(w)%*%(S*10000)%*%w
   sigma_delta <- matrix(0,n,n)
@@ -138,52 +138,52 @@ cal_func_3 <-function(w,S){
 }
   
 f1 <- function(w){
-  # °ü×°º¯Êý
+  # åŒ…è£…å‡½æ•°
   ans <- cal_func_1(w,S,r)
   return(-ans)
 }
 
 f2 <- function(w){
-  # °ü×°º¯Êý
+  # åŒ…è£…å‡½æ•°
   ans <- cal_func_2(w,S,r)
   return(-ans)
 }
 
 f3 <- function(w){
-  # °ü×°º¯Êý
+  # åŒ…è£…å‡½æ•°
   ans <- cal_func_3(w,S)
   return(ans)
 }
 
 
 weight_optimizer <- function(S0,r0,f){
-  # ¸ù¾ÝÄ¿±êº¯Êýr×ö×Ê²ú×éºÏ×îÓÅ»¯
-  # w:×Ê²úÈ¨ÖØ
-  # S:×Ê²úÊÕÒæÂÊÐ­·½²î
-  # r:×Ê²úÊÕÒæÂÊ¾ùÖµ 
+  # æ ¹æ®ç›®æ ‡å‡½æ•°råšèµ„äº§ç»„åˆæœ€ä¼˜åŒ–
+  # w:èµ„äº§æƒé‡
+  # S:èµ„äº§æ”¶ç›ŠçŽ‡åæ–¹å·®
+  # r:èµ„äº§æ”¶ç›ŠçŽ‡å‡å€¼ 
   n <- length(r0)
-  # ÏÞÖÆ¿ÕÍ·ºÍ¸Ü¸Ë
+  # é™åˆ¶ç©ºå¤´å’Œæ æ†
   par.l = rep(0,n); par.u = rep(1,n)
-  # ÏÞÖÆ×Ü×Ê²úÈ¨ÖØºÍÎª1
+  # é™åˆ¶æ€»èµ„äº§æƒé‡å’Œä¸º1
   A = matrix(rep(1,n),1)
   lin.l = c(1)
   lin.u = c(1)
-  # ×éºÏ²¨¶¯ÂÊÏÞÖÆ
+  # ç»„åˆæ³¢åŠ¨çŽ‡é™åˆ¶
   nlcon1 = function(w){
     return(sqrt(w%*%S%*%w)*sqrt(252))
   }
-  nlin.l = c(-Inf)  ; nlin.u = c(+Inf)  #Ä¿±êÄê»¯²¨¶¯ÂÊ
+  nlin.l = c(-Inf)  ; nlin.u = c(+Inf)  #ç›®æ ‡å¹´åŒ–æ³¢åŠ¨çŽ‡
   
-  # ¸ü¸Ä±äÁ¿ÊôÐÔ
+  # æ›´æ”¹å˜é‡å±žæ€§
   S <<- S0
   r <<- r0
-  # Ëæ»ú³õÊ¼»¯²ÎÊý
+  # éšæœºåˆå§‹åŒ–å‚æ•°
   init <- runif(n,min=0,max=1)
-  # Ä£ÐÍÓÅ»¯
+  # æ¨¡åž‹ä¼˜åŒ–
   m <- donlp2(init,f,par.u=par.u,par.l=par.l,A,lin.l=lin.l,lin.u=lin.u,
               nlin=  list(nlcon1) ,        #list(nlcon1,nlcon2), 
               nlin.u = nlin.u, nlin.l=nlin.l,control = donlp2Control())
-  # ·µ»Ø½á¹û
+  # è¿”å›žç»“æžœ
   # print(nlcon1(m$par))
   return(m$par)
 }
@@ -202,7 +202,7 @@ weight_optimizer <- function(S0,r0,f){
 # 
 #   
 #   m = donlp2(runif(n,min=0,max=1), f3, par.u=par.u, par.l=par.l,
-#                A,¡¡lin.l=lin.l,lin.u=lin.u,  
+#                A,ã€€lin.l=lin.l,lin.u=lin.u,  
 #                nlin=  list(nlcon1) ,        #list(nlcon1,nlcon2), 
 #                nlin.u = nlin.u, nlin.l=nlin.l,control = donlp2Control())
 #   print(nlcon1(m$par))
@@ -211,9 +211,9 @@ weight_optimizer <- function(S0,r0,f){
 # } 
 
 sharpe <- function(ret,freq){
-  # ¼ÆËãÄê»¯ÏÄÆÕÖµ
-  # ret:ÊÕÒæÂÊÐòÁÐ
-  # freq:ÊÕÒæÂÊÐòÁÐÆµÂÊ
+  # è®¡ç®—å¹´åŒ–å¤æ™®å€¼
+  # ret:æ”¶ç›ŠçŽ‡åºåˆ—
+  # freq:æ”¶ç›ŠçŽ‡åºåˆ—é¢‘çŽ‡
   if (freq=='w'){
     sharpe <- sqrt(52)*mean(ret)/sqrt(var(ret))
   }else if (freq=='m'){
@@ -223,9 +223,9 @@ sharpe <- function(ret,freq){
 }
 
 gx <- function(r,r_1,p,beta,sigma,h){
-  # ±´Ò¶Ë¹¸ÅÂÊ¸üÐÂº¯Êý
-  # beta[i]´ú±íµÚi¸ö×´Ì¬ËùÓÐ»Ø¹éµÄÏµÊý£¬sigma[i]i¸ö×´Ì¬µÄÐ­·½²î£¬ rÊÇ½ñÌìµÄÊÕÒæÂÊ , r_1´ú±í×òÌìµÄÊÕÒæÂÊ
-  # pÊÇÔ­À´Ô¤²â½ñÌìµÄ¸ÅÂÊ
+  # è´å¶æ–¯æ¦‚çŽ‡æ›´æ–°å‡½æ•°
+  # beta[i]ä»£è¡¨ç¬¬iä¸ªçŠ¶æ€æ‰€æœ‰å›žå½’çš„ç³»æ•°ï¼Œsigma[i]iä¸ªçŠ¶æ€çš„åæ–¹å·®ï¼Œ ræ˜¯ä»Šå¤©çš„æ”¶ç›ŠçŽ‡ , r_1ä»£è¡¨æ˜¨å¤©çš„æ”¶ç›ŠçŽ‡
+  # pæ˜¯åŽŸæ¥é¢„æµ‹ä»Šå¤©çš„æ¦‚çŽ‡
   dens = rep(0,h)
   for (i in 1:h) {
     dens[i]= dmvnorm( r , t(beta[,,i])%*%c(r_1,1), sigma[,,i])
@@ -234,57 +234,57 @@ gx <- function(r,r_1,p,beta,sigma,h){
 }
 
 mrs_predict <- function(result,test,train,h,type=1){
-  # Ñù±¾Íâ¾ùÖµÐ­·½²î¾ØÕóÔ¤²â£¬²¢½øÐÐ×îÓÅÈ¨ÖØÓÅ»¯ 
-  # result:mrsÄ£ÐÍÊä³ö½á¹û 
-  # test  :²âÊÔ¼¯Êý¾Ý  
-  # train :ÑµÁ·¼¯Êý¾Ý
-  # type  :È¨ÖØ×îÓÅ»¯º¯Êý£ºf1·Ö×´Ì¬×îÓÅ»¯·çÏÕÊÕÒæ±È f2 f3 
+  # æ ·æœ¬å¤–å‡å€¼åæ–¹å·®çŸ©é˜µé¢„æµ‹ï¼Œå¹¶è¿›è¡Œæœ€ä¼˜æƒé‡ä¼˜åŒ– 
+  # result:mrsæ¨¡åž‹è¾“å‡ºç»“æžœ 
+  # test  :æµ‹è¯•é›†æ•°æ®  
+  # train :è®­ç»ƒé›†æ•°æ®
+  # type  :æƒé‡æœ€ä¼˜åŒ–å‡½æ•°ï¼šf1åˆ†çŠ¶æ€æœ€ä¼˜åŒ–é£Žé™©æ”¶ç›Šæ¯” f2 f3 
   h <- result$h
   m <- dim(test)[2]
   n <- dim(test)[1]
   p_list <- t(matrix(result$p[dim(result$p)[1],])) # 
-  ret <- c() # ×éºÏÊÕÒæÂÊ
+  ret <- c() # ç»„åˆæ”¶ç›ŠçŽ‡
   weight <- c()
-  beta <- result$var_beta # VARÏµÊý
+  beta <- result$var_beta # VARç³»æ•°
   sigma <- result$cov_error 
-  # ÔÚ1µ½n-1ÆÚÃ¿ÆÚ½øÐÐ¾ùÖµ·½²îÔ¤²â£¬
+  # åœ¨1åˆ°n-1æœŸæ¯æœŸè¿›è¡Œå‡å€¼æ–¹å·®é¢„æµ‹ï¼Œ
   for (i in 1:(n-1))
   { 
-    # µ±Ìì×Ê²úÊÕÒæÂÊ
+    # å½“å¤©èµ„äº§æ”¶ç›ŠçŽ‡
     print(i)
     r <- test[i,]
-    # »ñÈ¡Ç°Ò»ÆÚµÄ×Ê²úÊÕÒæÂÊ£¬Èç¹ûÊÇÑµÁ·¼¯µÚÒ»ÆÚ£¬ÔòÇ°Ò»ÆÚµÄÊý¾ÝÀ´×ÔÓÚ²âÊÔ¼¯µÄ×îºóÒ»ÆÚ
+    # èŽ·å–å‰ä¸€æœŸçš„èµ„äº§æ”¶ç›ŠçŽ‡ï¼Œå¦‚æžœæ˜¯è®­ç»ƒé›†ç¬¬ä¸€æœŸï¼Œåˆ™å‰ä¸€æœŸçš„æ•°æ®æ¥è‡ªäºŽæµ‹è¯•é›†çš„æœ€åŽä¸€æœŸ
     if (i==1){
-      r_1 <- train[dim(train)[1],] # ÑµÁ·¼¯×îºóÒ»ÆÚÊý¾Ý
+      r_1 <- train[dim(train)[1],] # è®­ç»ƒé›†æœ€åŽä¸€æœŸæ•°æ®
     }else{
       r_1 <- test[i-1,]
     }
     
-    # ¼ÆËãµ±ÆÚ×´Ì¬¸ÅÂÊ
-    p <- p_list[i,]%*%result$q  # qÊÇ×ªÒÆ¸ÅÂÊ¾ØÕó
-    # ±´Ò¶Ë¹¸üÐÂµ±Ç°×´Ì¬¸ÅÂÊ
-    p_update <- gx(as.numeric(r),as.numeric(r_1),p,beta,sigma,h) # ¸üÐÂ¸ÅÂÊ
-    # ¼ÇÂ¼
-    p_list <- rbind(p_list,p_update) # ¼ÇÂ¼µ±ÌìµÄp
-    # Í¨¹ý×´Ì¬×ªÒÆ¾ØÕóÔ¤²âÏÂÒ»ÆÚ¸ÅÂÊ
-    p_next <- (p_update)%*%result$q # Ô¤²âÏÂÒ»ÆÚµÄp
+    # è®¡ç®—å½“æœŸçŠ¶æ€æ¦‚çŽ‡
+    p <- p_list[i,]%*%result$q  # qæ˜¯è½¬ç§»æ¦‚çŽ‡çŸ©é˜µ
+    # è´å¶æ–¯æ›´æ–°å½“å‰çŠ¶æ€æ¦‚çŽ‡
+    p_update <- gx(as.numeric(r),as.numeric(r_1),p,beta,sigma,h) # æ›´æ–°æ¦‚çŽ‡
+    # è®°å½•
+    p_list <- rbind(p_list,p_update) # è®°å½•å½“å¤©çš„p
+    # é€šè¿‡çŠ¶æ€è½¬ç§»çŸ©é˜µé¢„æµ‹ä¸‹ä¸€æœŸæ¦‚çŽ‡
+    p_next <- (p_update)%*%result$q # é¢„æµ‹ä¸‹ä¸€æœŸçš„p
     
-    # ×éºÏÈ¨ÖØ×îÓÅ»¯
+    # ç»„åˆæƒé‡æœ€ä¼˜åŒ–
     ret_model <- 0
     weight_model <- rep(0,m)
-    # Ä£ÐÍ1£¬2£¬3
+    # æ¨¡åž‹1ï¼Œ2ï¼Œ3
     if (type==1){
     for (j in (1:h))
     { 
-      # ÔÚÃ¿¸ö×´Ì¬ÏÂ½øÐÐ¾ùÖµ·½²îÄ£ÐÍÔ¤²â
-      ret_next_est <- t(beta[,,j])%*%c(as.numeric(r),1) # ¸ù¾ÝVARÔ¤²âÏÂÒ»ÆÚÊÕÒæÂÊ
-      S_est <- result$cov_error[,,j]                    # 4*4 ¸ù¾Ý×´Ì¬»ñÈ¡Ð­·½²î¾ØÕó
+      # åœ¨æ¯ä¸ªçŠ¶æ€ä¸‹è¿›è¡Œå‡å€¼æ–¹å·®æ¨¡åž‹é¢„æµ‹
+      ret_next_est <- t(beta[,,j])%*%c(as.numeric(r),1) # æ ¹æ®VARé¢„æµ‹ä¸‹ä¸€æœŸæ”¶ç›ŠçŽ‡
+      S_est <- result$cov_error[,,j]                    # 4*4 æ ¹æ®çŠ¶æ€èŽ·å–åæ–¹å·®çŸ©é˜µ
       w <- weight_optimizer(S_est,ret_next_est,f1)
       weight_model <- weight_model + p_next[j]*w
       
     }
     }else if (type==2){
-      # ¶ÔÃ¿¸ö×´Ì¬µÄ¾ùÖµºÍ·½²î½øÐÐ¸ÅÂÊ¼ÓÈ¨
+      # å¯¹æ¯ä¸ªçŠ¶æ€çš„å‡å€¼å’Œæ–¹å·®è¿›è¡Œæ¦‚çŽ‡åŠ æƒ
       ret_next_est <- t(beta[,,1])%*%c(as.numeric(r),1)*p_next[1]
       S_est <- result$cov_error[,,1]*p_next[1]                    
       
@@ -293,23 +293,23 @@ mrs_predict <- function(result,test,train,h,type=1){
         ret_next_est <- ret_next_est + t(beta[,,j])%*%c(as.numeric(r),1)*p_next[j] 
         S_est <- S_est + result$cov_error[,,j]*p_next[j]                    
       }     
-      # ¾ùÖµ·½²îÔ¤²â
+      # å‡å€¼æ–¹å·®é¢„æµ‹
       weight_model <- weight_optimizer(S_est,ret_next_est,f1)
     }else if (type==3){
-      # ¶ÔÃ¿¸ö×´Ì¬µÄÐ­·½²î¾ùÖµ½øÐÐ¼ÓÈ¨
+      # å¯¹æ¯ä¸ªçŠ¶æ€çš„åæ–¹å·®å‡å€¼è¿›è¡ŒåŠ æƒ
       S_est <- result$cov_error[,,1]*p_next[1]
       ret_next_est <- rep(0,m)
       for (j in (2:h))
       {
         S_est <- S_est + result$cov_error[,,j]*p_next[j]                    
       }
-      # ·çÏÕÆ½¼Û·½·¨Çó×îÓÅÈ¨ÖØ
+      # é£Žé™©å¹³ä»·æ–¹æ³•æ±‚æœ€ä¼˜æƒé‡
       weight_model <- weight_optimizer(S_est,ret_next_est,f3)
     
     }
-    # ¼ÆËãÊÕÒæÂÊ
+    # è®¡ç®—æ”¶ç›ŠçŽ‡
     ret_model <- (test[i+1,])%*%weight_model
-    # ¼ÇÂ¼ÊÕÒæÂÊºÍÈ¨ÖØ
+    # è®°å½•æ”¶ç›ŠçŽ‡å’Œæƒé‡
     ret[i] <- ret_model
     weight <- rbind(weight,as.numeric(weight_model))
     
@@ -319,10 +319,10 @@ mrs_predict <- function(result,test,train,h,type=1){
 }
 
 adjust_weight <- function(perf,qu=0.05,type=1){
-  # µ÷²Ö·½Ê½ÓÅ»¯
-  # perf:mrs mvÄ£ÐÍÓÅ»¯½á¹û
-  # qu  :ãÐÖµ
-  # type:µ÷Õû·½·¨:1¸ù¾Ý×î´óµ÷²ÖÁ¿;2¸ù¾Ý×Üµ÷²ÖÁ¿
+  # è°ƒä»“æ–¹å¼ä¼˜åŒ–
+  # perf:mrs mvæ¨¡åž‹ä¼˜åŒ–ç»“æžœ
+  # qu  :é˜ˆå€¼
+  # type:è°ƒæ•´æ–¹æ³•:1æ ¹æ®æœ€å¤§è°ƒä»“é‡;2æ ¹æ®æ€»è°ƒä»“é‡
   n <- dim(perf$weight)[1]
   m <- dim(perf$weight)[2]
   
@@ -347,15 +347,15 @@ adjust_weight <- function(perf,qu=0.05,type=1){
     }
     
     if (delta_w > qu){
-      # ³¬¹ýãÐÖµ,µ÷²Ö
+      # è¶…è¿‡é˜ˆå€¼,è°ƒä»“
       change_pos[i] <- TRUE
       weight_adj[i,] <- as.numeric(weight[i,])
     }else{
-      # Î´³¬¹ýãÐÖµ,²»µ÷²Ö
+      # æœªè¶…è¿‡é˜ˆå€¼,ä¸è°ƒä»“
       change_pos[i] <- FALSE
       weight_adj[i,] <- as.numeric(weight_adj[i-1,])
     }
-    # µ÷ÕûºóµÄÃ¿ÈÕ×Ê²ú³Ö²Ö±ä»¯Á¿
+    # è°ƒæ•´åŽçš„æ¯æ—¥èµ„äº§æŒä»“å˜åŒ–é‡
     delta_w1 <-  (sum(abs(weight_adj[i,]-weight_adj[i-1,])))
     weight_change[i] <- delta_w1
   }
@@ -371,11 +371,11 @@ adjust_weight <- function(perf,qu=0.05,type=1){
 
 
 perf_analysis <- function(weight,asset_ret,cost=0.001,freq='w'){
-  # ²ßÂÔ±íÏÖ·ÖÎö
-  # weight   :È¨ÖØlist
-  # asset_ret:¶ÔÓ¦×Ê²úÊÕÒæÂÊ
-  # cost     :µ¥±ß½»Ò×ÊÖÐø·Ñ·Ñ
-  # È¨ÖØÐòÁÐ³¤¶È
+  # ç­–ç•¥è¡¨çŽ°åˆ†æž
+  # weight   :æƒé‡list
+  # asset_ret:å¯¹åº”èµ„äº§æ”¶ç›ŠçŽ‡
+  # cost     :å•è¾¹äº¤æ˜“æ‰‹ç»­è´¹è´¹
+  # æƒé‡åºåˆ—é•¿åº¦
   n <- dim(weight)[1]
   
   if (freq=='w'){
@@ -412,8 +412,8 @@ perf_analysis <- function(weight,asset_ret,cost=0.001,freq='w'){
 }
 
 
-covar <- function(A, h){  #A ÊÕÒæÂÊ¾ØÕó
-  #h = 60  #¼ÆËãÐ­·½²î¾ØÕóÊ±ÓÃµ½ÊÕÒæµÄ³¤¶È
+covar <- function(A, h){  #A æ”¶ç›ŠçŽ‡çŸ©é˜µ
+  #h = 60  #è®¡ç®—åæ–¹å·®çŸ©é˜µæ—¶ç”¨åˆ°æ”¶ç›Šçš„é•¿åº¦
   n = dim(A)[1]
   covar_2 = c()
   for (i in 1:(n-h+1)) {

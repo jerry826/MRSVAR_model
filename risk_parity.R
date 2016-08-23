@@ -1,4 +1,4 @@
-source('C:\\Users\\lvjia\\Google ÔÆ¶ËÓ²ÅÌ\\ÑĞÒ»Êî¼Ù\\bd quant research\\´óÀà×Ê²úÅäÖÃ\\MRS.R')
+source('MRS.R')
 
 w.start()
 start <- '2005-02-01'
@@ -13,7 +13,7 @@ ret <- collect_data(assets,start,end,mid,freq)
 
 h <- weight_cal(covar(ret$test, 60))
 perf <- list(weight=h)
-# ²ÖÎ»ÔÙÓÅ»¯
+# ä»“ä½å†ä¼˜åŒ–
 weight2 <- adjust_weight(perf)
 
 asset_ret <- ret$test
