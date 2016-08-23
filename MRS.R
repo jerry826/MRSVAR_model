@@ -12,12 +12,13 @@ library(vars)
 library(fBasics)
 
 collect_data <- function(assets,start='2010-01-01',end='2016-08-16',mid='2015-01-01',freq='w'){
+  
   # 获取资产收益率序列
   # assets: 资产代码序列
   # start:  训练集起始日期
   # end:    测试集结束日期
   # mid:    训练集、测试集间隔点
-  # freq:   数据频率，w代表周，m代表月，d代表日
+  # freq:   数据频率,w代表周,m代表月,d代表日
   for (i in 1:length(assets)){
     raw_data <- (w.wsd(assets[i],"pre_close,open,high,low,close",start,end))$Data
     if (i == 1){
@@ -35,12 +36,20 @@ collect_data <- function(assets,start='2010-01-01',end='2016-08-16',mid='2015-01
     dataset <- apply.monthly(dataset,last)
   }
   # 计算收益率
+  ret_d <- ROC(dataset,type=c('discrete'))
   ret <- ROC(dataset)
+  
   ret <- ret[2:dim(ret)[1]]
+  ret_d <- ret_d[2:dim(ret_d)[1]]
+  
   # 训练、测试集划分
   train <- ret[paste(start,mid,sep='/')]
   test <- ret[paste(mid,end,sep='/')]
-  return(list(train=train,test=test) )
+  
+  train_d <- ret_d[paste(start,mid,sep='/')]
+  test_d <- ret_d[paste(mid,end,sep='/')] 
+  
+  return(list(train=train,test=test,raw_p=dataset,train_d=train_d,test_d=test_d ) )
 }
 
 mrs_model <- function(ret,rlag=1,h=5){
@@ -368,6 +377,27 @@ adjust_weight <- function(perf,qu=0.05,type=1){
 
 
 ret_analysis <- function(ret,freq='w'){
+  ret <- as.xts(ret)
+  n <- dim(ret)[1]
+  if (freq=='w'){
+    m <- 52
+  } else if(freq=='m'){
+    m <- 12
+  } else{m <- 252}
+  cum_ret <- cumprod(1+ret)
+  sharpe1 <- sharpe(ret,freq)
+  vol <- sqrt(m)*sd(ret)
+  mean_ret <- (cum_ret[n])^(m/n)-1
+  drawdown <-  min(drawdowns(timeSeries(ret)))
+  
+  
+  print('----------Return result----------')
+  print(paste('Annual return: ',as.character(round(mean_ret,4)) ,sep=''))
+  print(paste('Annual volatility: ',as.character(round(vol,4)) ,sep=''))
+  print(paste('Sharpe ratio: ',as.character(round(sharpe1,3)) ,sep=''))
+  print(paste('Maximum drawdown: ',as.character(round(drawdown,4)) ,sep=''))  
+  
+  plot.zoo(xts(cum_ret,index(ret)),screens=c(1),col=c('blue'))
   
 }
 
@@ -394,23 +424,47 @@ perf_analysis <- function(weight,asset_ret,cost=0.001,freq='w'){
     ret_after_fee[i] <- ret_before_fee[i]-cost*sum(abs(weight[i,]-weight[i-1,]))
     
   }
+
+  cum_ret_bf <- cumprod(ret_before_fee+1)
+  cum_ret_af <- cumprod(ret_after_fee+1)
   
-  cum_ret_bf <- cumsum(ret_before_fee)
-  cum_ret_af <- cumsum(ret_after_fee)
-  
-  
-  mean_ret_bf <- mean(ret_before_fee)*m
-  mean_ret_af <- mean(ret_after_fee)*m 
+  # annual return
+  mean_ret_bf <- (cum_ret_bf[n])^(m/n)-1
+  mean_ret_af <- (cum_ret_af[n])^(m/n)-1
+
+  # mean_ret_af <- (mean(ret_after_fee)+1)^m 
   sharpe_bf <- sharpe(ret_before_fee,freq)
   sharpe_af <- sharpe(ret_after_fee,freq)
-  print(paste('Sharpe before fee: ',as.character(sharpe_bf) ,sep=''))
-  print(paste('Sharpe after fee: ',as.character(sharpe_af) ,sep=''))
-  print(paste('Annual return before fee: ',as.character(mean_ret_bf) ,sep=''))
-  print(paste('Annual return after fee: ',as.character(mean_ret_af) ,sep='')) 
+  
+  # annual volatility
+  vol_bf <- sqrt(m)*sd(ret_after_fee)
+  vol_af <- sqrt(m)*sd(ret_after_fee)
+  
+  # draw_down
+  drawdown_bf <-  min(drawdowns(timeSeries(ret_before_fee)))
+  drawdown_af <-  min(drawdowns(timeSeries(ret_after_fee)))
+  
+  # before fee
+  print('----------Before fee result----------')
+  print(paste('Annual return: ',as.character(round(mean_ret_bf,4)) ,sep=''))
+  print(paste('Annual volatility: ',as.character(round(vol_bf,4)) ,sep=''))
+  print(paste('Sharpe ratio: ',as.character(round(sharpe_bf,3)) ,sep=''))
+  print(paste('Maximum drawdown: ',as.character(round(drawdown_bf,4)) ,sep=''))
+  
+
+  # after fee
+  print('----------After fee result----------')
+  print(paste('Annual return: ',as.character(round(mean_ret_af,4)) ,sep=''))
+  print(paste('Annual volatility: ',as.character(round(vol_af,4)) ,sep=''))
+  print(paste('Sharpe ratio: ',as.character(round(sharpe_af,3)) ,sep=''))
+  print(paste('Maximum drawdown: ',as.character(round(drawdown_af,4)) ,sep='')) 
+  
+  
   
   print(summary(weight))
+  
   plot.zoo(xts(cbind(cum_ret_bf,cum_ret_af),index(asset_ret)),screens=c(1,1),col=c('red','blue'))
-  plot.zoo(xts(weight2$weight_adj,index(asset_ret)))
+  plot.zoo(xts(weight,index(asset_ret)))
 }
 
 

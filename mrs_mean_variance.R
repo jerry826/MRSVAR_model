@@ -34,10 +34,12 @@ perf <- mrs_predict(result,ret_all$test,ret_all$train,h,1)
 # 仓位再优化
 weight2 <- adjust_weight(perf)
 
+
 # 表现分析
-n <- dim(ret_all$test)[1]
+## 
+n <- dim(ret_all$test_d)[1]
 ## 取2:n期的数据
-asset_ret <- ret_all$test[2:n]
+asset_ret <- ret_all$test_d[2:n]
 ## 分析
 perf_analysis(weight2$weight_adj,asset_ret ,cost=0.001,freq=freqs)
 
@@ -51,3 +53,23 @@ for (i in 1:h) {
 
 print(mu)
 
+
+
+
+p_all = rbind(result$p, perf$p_list) #把概率全部拼起来
+
+#找到最大概率对应的状态
+p_max = apply(p_all, 1, max)
+p_max_loc = rep(0, length(p_max))
+for (i  in 1:length(p_max)) {
+  p_max_loc[i] = which(p_all[i,]==p_max[i])
+}
+
+windows()
+plot(p_max_loc)
+
+time_loc = c()
+for (j in 1:h) {
+  t_loc = which(p_max_loc==j)
+  time_loc =c(time_loc, list(t_loc))
+}
