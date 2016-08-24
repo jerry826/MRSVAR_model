@@ -10,6 +10,7 @@ library(mvtnorm)
 library(zoo)
 library(vars)
 library(fBasics)
+library(TTR)
 
 collect_data <- function(assets,start='2010-01-01',end='2016-08-16',mid='2015-01-01',freq='w'){
   
@@ -179,7 +180,7 @@ weight_optimizer <- function(S0,r0,f){
   lin.u = c(1)
   # 组合波动率限制
   nlcon1 = function(w){
-    return(sqrt(w%*%S%*%w)*sqrt(252))
+    return(sqrt((w%*%S*10000)%*%w)*sqrt(52)) #年化波动率
   }
   nlin.l = c(-Inf)  ; nlin.u = c(+Inf)  #目标年化波动率
   
@@ -193,7 +194,8 @@ weight_optimizer <- function(S0,r0,f){
               nlin=  list(nlcon1) ,        #list(nlcon1,nlcon2), 
               nlin.u = nlin.u, nlin.l=nlin.l,control = donlp2Control())
   # 返回结果
-  # print(nlcon1(m$par))
+  print(paste('Volatility returned : ', as.character(nlcon1(m$par))))
+  print(paste('Target function value : ',as.character(f3(m$par))))
   return(m$par)
 }
 
@@ -254,6 +256,7 @@ mrs_predict <- function(result,test,train,h,type=1){
   p_list <- t(matrix(result$p[dim(result$p)[1],])) # 
   ret <- c() # 组合收益率
   weight <- c()
+  ret_predict <- c()
   beta <- result$var_beta # VAR系数
   sigma <- result$cov_error 
   # 在1到n-1期每期进行均值方差预测，
@@ -281,13 +284,16 @@ mrs_predict <- function(result,test,train,h,type=1){
     # 组合权重最优化
     ret_model <- 0
     weight_model <- rep(0,m)
+    
     # 模型1，2，3
     if (type==1){
     for (j in (1:h))
     { 
       # 在每个状态下进行均值方差模型预测
       ret_next_est <- t(beta[,,j])%*%c(as.numeric(r),1) # 根据VAR预测下一期收益率
-      S_est <- result$cov_error[,,j]                    # 4*4 根据状态获取协方差矩阵
+      # S_est <- result$cov_error[,,j] +t(beta[1:m,1:m,j])%*%SS%*%beta[1:m,1:m,j]               # 4*4 根据状态获取协方差矩阵
+      S_est <- result$cov_error[,,j]             # 4*4 根据状态获取协方差矩阵
+      
       w <- weight_optimizer(S_est,ret_next_est,f1)
       weight_model <- weight_model + p_next[j]*w
       
@@ -303,6 +309,7 @@ mrs_predict <- function(result,test,train,h,type=1){
         S_est <- S_est + result$cov_error[,,j]*p_next[j]                    
       }     
       # 均值方差预测
+      S_est <- SS
       weight_model <- weight_optimizer(S_est,ret_next_est,f1)
     }else if (type==3){
       # 对每个状态的协方差均值进行加权
@@ -315,16 +322,28 @@ mrs_predict <- function(result,test,train,h,type=1){
       # 风险平价方法求最优权重
       weight_model <- weight_optimizer(S_est,ret_next_est,f3)
     
+    }else if(type==4){
+      # 取预期收益率最大的资产，全仓
+      # 通过概率加权各个状态下的预测收益率
+      ret_next_est <- t(beta[,,1])%*%c(as.numeric(r),1)*p_next[1]
+      for (j in (2:h))
+      {
+        ret_next_est <- ret_next_est + t(beta[,,j])%*%c(as.numeric(r),1)*p_next[j] 
+      }   
+      weight_model <- rep(0,m)
+      idx <- which.max(ret_next_est)
+      weight_model[idx] <- 1
     }
+    
     # 计算收益率
     ret_model <- (test[i+1,])%*%weight_model
     # 记录收益率和权重
     ret[i] <- ret_model
     weight <- rbind(weight,as.numeric(weight_model))
-    
+    ret_predict <- rbind(ret_predict,as.numeric(ret_next_est))
   }
   
-  return(list(ret=ret,p_list=p_list,weight=weight))
+  return(list(ret=ret,p_list=p_list,weight=weight,ret_predict=ret_predict))
 }
 
 adjust_weight <- function(perf,qu=0.05,type=1){
@@ -463,12 +482,12 @@ perf_analysis <- function(weight,asset_ret,cost=0.001,freq='w'){
   
   print(summary(weight))
   
-  plot.zoo(xts(cbind(cum_ret_bf,cum_ret_af),index(asset_ret)),screens=c(1,1),col=c('red','blue'))
+  plot.zoo(xts(cbind(cum_ret_bf,cum_ret_af),index(asset_ret)),col=c('red','blue'))
   plot.zoo(xts(weight,index(asset_ret)))
 }
 
 
-covar <- function(A, h){  #A 收益率矩阵
+covar1 <- function(A, h){  #A 收益率矩阵
   #h = 60  #计算协方差矩阵时用到收益的长度
   n = dim(A)[1]
   covar_2 = c()
@@ -479,6 +498,43 @@ covar <- function(A, h){  #A 收益率矩阵
   return(covar_2)
 }
 
+covar2 <- function(A, h){
+  n <- dim(A)[1]
+  covar_2 <- c()
+  for (i in 1:(n-h+1)) {
+    X <- (ew_var(A[i:(i+h-1),]))
+    
+    covar_2 = c(covar_2, list(X))
+  
+  }
+  return(covar_2)
+}
+  
+ew_var <- function(X){
+  m <- dim(X)[1]
+  n <- dim(X)[2]
+  # deman
+  X_demean <- X-matrix(1,m,1)%*%(apply(X,2,mean))
+  V <- array(rep(0,m*n*n),c(m,n,n)) 
+  ewvar <- array(rep(0,n*n),c(n,n))
+  for (i in 1:m){
+    x <- as.matrix(X_demean[i,]) 
+    S <- t(x)%*%x  
+    V[i,,] <- S
+  } 
+  for (j in (1:n)){
+    for (k in (1:n)){
+      v <- V[,j,k]
+      ewvar[j,k] <- WMA(v,n=m)[m]
+    }
+  }
+  return(ewvar)
+}
+  
+  
+  
+
+
 weight_cal <- function(h){
   n=length(h)
   weight = matrix(0, n, dim(h[[1]])[1])
@@ -488,15 +544,18 @@ weight_cal <- function(h){
     print(i)
     if (i > 1){
       opt_weight = weight_optimizer(h[[i]],rep(0,dim(h[[1]])[1]),f3)
-      while (sum(abs(opt_weight-last_weight))>0.30){
+      k <-1
+      while (sum(abs(opt_weight-last_weight))>0.30 & k < 50){
       opt_weight = weight_optimizer(h[[i]],rep(0,dim(h[[1]])[1]),f3)
       print(i)
       print(opt_weight)
       print(last_weight)
       print(sum(abs(opt_weight-last_weight)))
+      k <- k +1
       }
       weight[i,] <- opt_weight
       last_weight <- opt_weight
+      
     }else{
       opt_weight <- weight_optimizer(h[[i]],rep(0,dim(h[[1]])[1]),f3)
       weight[i,] <- opt_weight

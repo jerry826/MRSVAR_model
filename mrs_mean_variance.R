@@ -37,7 +37,7 @@ weight2 <- adjust_weight(perf)
 
 # 表现分析
 ## 
-n <- dim(ret_all$test_d)[1]
+n <- dim(ret_all$test)[1]
 ## 取2:n期的数据
 asset_ret <- ret_all$test_d[2:n]
 ## 分析
@@ -52,8 +52,6 @@ for (i in 1:h) {
 }
 
 print(mu)
-
-
 
 
 p_all = rbind(result$p, perf$p_list) #把概率全部拼起来
