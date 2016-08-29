@@ -53,12 +53,12 @@ collect_data <- function(assets,start='2010-01-01',end='2016-08-16',mid='2015-01
   return(list(train=train,test=test,raw_p=dataset,train_d=train_d,test_d=test_d ) )
 }
 
-mrs_model <- function(ret,rlag=1,h=5){
+mrs_model <- function(ret,rlag=1,h=5,niterblkopt=30){
   # 输入多元时间序列，训练模型
   # p: VAR模型滞后阶数
   # h: Markov隐状态数量
   
-  model <- msvar(ret,p=rlag,h=h)
+  model <- msvar(ret,p=rlag,h=h,niterblkopt=niterblkopt)
   var_beta <- model$hreg$Bk      # beta 5*4                                 VAR参数估计
   cov_error <- model$hreg$Sigmak # the covariance matrix of residuals 4*4   残差协方差矩阵
   error <- model$hreg$e          # errors 1607*4*5                          残差
@@ -173,7 +173,9 @@ weight_optimizer <- function(S0,r0,f){
   # r:资产收益率均值 
   n <- length(r0)
   # 限制空头和杠杆
-  par.l = rep(0,n); par.u = rep(1,n)
+  par.l = rep(0,n)
+  # par.u = rep(1,n)
+  par.u = c(0.3,1)
   # 限制总资产权重和为1
   A = matrix(rep(1,n),1)
   lin.l = c(1)
@@ -182,7 +184,7 @@ weight_optimizer <- function(S0,r0,f){
   nlcon1 = function(w){
     return(sqrt((w%*%S*10000)%*%w)*sqrt(52)) #年化波动率
   }
-  nlin.l = c(-Inf)  ; nlin.u = c(+Inf)  #目标年化波动率
+  nlin.l = c(0)  ; nlin.u = c(+Inf)  #目标年化波动率
   
   # 更改变量属性
   S <<- S0
@@ -194,8 +196,8 @@ weight_optimizer <- function(S0,r0,f){
               nlin=  list(nlcon1) ,        #list(nlcon1,nlcon2), 
               nlin.u = nlin.u, nlin.l=nlin.l,control = donlp2Control())
   # 返回结果
-  print(paste('Volatility returned : ', as.character(nlcon1(m$par))))
-  print(paste('Target function value : ',as.character(f3(m$par))))
+  # print(paste('Volatility returned : ', as.character(nlcon1(m$par))))
+  # print(paste('Target function value : ',as.character(f3(m$par))))
   return(m$par)
 }
 

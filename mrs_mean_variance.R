@@ -19,11 +19,25 @@ assets <- c('000300.SH','000905.SH','037.CS','AU9999.SGE')
 # 提取数据 
 ret_all <- collect_data(assets,start,end,mid,freqs)
 
+# mu <- apply(ret_all$train,2,mean)
+# std <- apply(ret_all$train,2,sd)
+# ret_all$train <- scale(ret_all$train)
+# ret_all$test <- scale(ret_all$test)
+# mu <- apply(ret_all$train,2,mean)
+# st <- apply(ret_all$train,2,sd)
+# for (i in 1:dim(ret_all$train)[1]){
+#   ret_all$train[i,] <- (ret_all$train[i,]-mu)/st
+# } 
+# for (i in 1:dim(ret_all$test)[1]){
+#   ret_all$test[i,] <- (ret_all$test[i,]-mu)/st
+# } 
+
+
 # 设置模型变量
 p <- 1 # 滞后阶数
 h <- 6 # 状态个数 
 # 训练模型
-result <- mrs_model(ret_all$train,p,h)
+result <- mrs_model((ret_all$train),p,h)
 
 
 # rr <- mrs_model(ret$train) # 样本内验证

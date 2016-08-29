@@ -9,7 +9,8 @@ strategy_1 <- function(dataset,freq){
   weight2 <- adjust_weight(perf)
   perf_analysis(weight2$weight_adj,dataset,freq=freq)
   print(dim(weight2$weight_adj))
-  
+  cum_p <- cbind(cumprod(apply(weight2$weight_adj*dataset,1,sum)+1))
+  write.csv(cum_p,'result.csv')  
 }
 
 # strat2: 等权重组：无再平衡
@@ -26,6 +27,9 @@ strategy_2 <- function(dataset,freq){
   weight2 <- adjust_weight(perf,qu=0.05,type=2)
   perf_analysis(weight2$weight_adj,dataset,freq=freq)
   print(dim(weight2$weight_adj))
+  cum_p <- cbind(cumprod(apply(weight2$weight_adj*dataset,1,sum)+1))
+  write.csv(cum_p,'result.csv')  
+  
 }
 # strat3: 等权
 
@@ -45,13 +49,15 @@ strategy_3 <- function(dataset,freq){
   weight2 <- adjust_weight(perf,qu=0.05,type=2)
   perf_analysis(weight2$weight_adj,dataset,freq=freq)  
   print(dim(weight2$weight_adj))
+  cum_p <- cbind(cumprod(apply(weight2$weight_adj*dataset,1,sum)+1))
+  write.csv(cum_p,'result.csv')  
   
 }
 
 # 风险平价模型
 strategy_4 <- function(dataset,freq){
   window <- 60
-  h <- weight_cal(covar2(dataset,window))
+  h <- weight_cal(covar1(dataset,window))
   perf <- list(weight=h)
   # 仓位再优化
   weight2 <- adjust_weight(perf)
@@ -61,7 +67,7 @@ strategy_4 <- function(dataset,freq){
   asset_ret <- dataset[(window+1):n]
   perf_analysis(weight2$weight_adj[1:(n-window),],asset_ret ,cost=0.001)
   print(dim(asset_ret))
-  cum_p <- cbind(cumprod(apply(weight2$weight_adj[1:(n-window),]*asset_ret,1,sum)+1),index(asset_ret))
+  cum_p <- cbind(cumprod(apply(weight2$weight_adj[1:(n-window),]*asset_ret,1,sum)+1))
   write.csv(cum_p,'result.csv')
 }
 
@@ -97,7 +103,7 @@ strategy_3(dataset,freq)
 
 start <- '2005-02-01'
 end <- '2016-08-16'
-mid <- '2012-05-20'
+mid <- '2013-08-01'
 freq <- 'w'
 assets <- c('000300.SH','000905.SH','037.CS','AU9999.SGE')
 
@@ -105,4 +111,5 @@ assets <- c('000300.SH','000905.SH','037.CS','AU9999.SGE')
 ret_all <- collect_data(assets,start,end,mid,freq)
 dataset <- ret_all$test_d
 
-strategy_4(dataset,freq)
+source('MRS.R')
+strategy_3(dataset,freq)
