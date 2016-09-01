@@ -1,3 +1,7 @@
+# author: Min Song, Jiayang Lv
+# contact: lvjy3.15@sem.tsinghua.edu.cn
+# file: risk_parity.R
+# time: 2016/9/1
 source('func.R')
 
 # 1. 基本参数设置
@@ -10,14 +14,14 @@ mid <- '2013-08-01'   # 训练集最后一期
 freq <- 'd' # 模型频率
 assets <- c('000300.SH','000905.SH','037.CS','AU9999.SGE',"CUFI.WI")
 
-# 
+# 2. 获取数据
 ret <- collect_data(assets,start,end,mid,freq)
+# 3. 计算历史协方差矩阵
+weight <- weight_cal(covar(ret$test, 60))
 
-h <- weight_cal(covar(ret$test, 60))
-
-perf <- list(weight=h)
+weight <- list(weight=weight)
 # 仓位再优化
-weight2 <- adjust_weight(perf)
+weight_adj <- adjust_weight(weight)
 
 asset_ret <- ret$test
 n <- dim(ret$test)[1]

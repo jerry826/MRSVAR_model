@@ -1,4 +1,9 @@
-source('MRS.R')
+# author: Min Song, Jiayang Lv
+# contact: lvjy3.15@sem.tsinghua.edu.cn
+# file: multi_strategy_analysis.R
+# time: 2016/9/1
+
+source('func.R')
 
 # strat1: 等权重组：每周再平衡
 strategy_1 <- function(dataset,freq){

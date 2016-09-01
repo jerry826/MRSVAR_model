@@ -3,7 +3,6 @@
 # file: msbvar_model.R
 # time: 2016/9/1
 
-
 source('func.R')
 
 # Markow state VAR model
