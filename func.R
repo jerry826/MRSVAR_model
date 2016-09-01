@@ -64,7 +64,7 @@ mrs_model <- function(ret,rlag=1,h=5,niterblkopt=30){
   error <- model$hreg$e          # errors 1607*4*5                          残差
   p <- model$fp                  # 1607*5                                   状态概率  
   q <- model$Q                   # 5*5                                      状态转移概率矩阵
-  return(list(var_beta=var_beta,cov_error=cov_error,error=error,p=p,q=q,h=h,lag=rlag))
+  return(list(var_beta=var_beta,cov_error=cov_error,error=error,p=p,q=q,h=h,lag=rlag,model=model))
 }
 
 insample_mv_validation <- function(result,ret,h){
@@ -128,7 +128,7 @@ cal_func_2 <- function(w,S,r){
   # r:资产收益率均值  
   p_r <- w%*%r
   p_var <- (t(w)%*%S%*%w)
-  adj_ret <- p_r-0.5*p_var
+  adj_ret <- p_r
   return(adj_ret)
 }
 
@@ -174,8 +174,8 @@ weight_optimizer <- function(S0,r0,f){
   n <- length(r0)
   # 限制空头和杠杆
   par.l = rep(0,n)
-  # par.u = rep(1,n)
-  par.u = c(0.3,1)
+  par.u = rep(1,n)
+  # par.u = c(0.3,1)
   # 限制总资产权重和为1
   A = matrix(rep(1,n),1)
   lin.l = c(1)
@@ -184,7 +184,7 @@ weight_optimizer <- function(S0,r0,f){
   nlcon1 = function(w){
     return(sqrt((w%*%S*10000)%*%w)*sqrt(52)) #年化波动率
   }
-  nlin.l = c(0)  ; nlin.u = c(+Inf)  #目标年化波动率
+  nlin.l = c(14)  ; nlin.u = c(14.1)  #目标年化波动率
   
   # 更改变量属性
   S <<- S0
@@ -196,7 +196,7 @@ weight_optimizer <- function(S0,r0,f){
               nlin=  list(nlcon1) ,        #list(nlcon1,nlcon2), 
               nlin.u = nlin.u, nlin.l=nlin.l,control = donlp2Control())
   # 返回结果
-  # print(paste('Volatility returned : ', as.character(nlcon1(m$par))))
+  print(paste('Volatility returned : ', as.character(nlcon1(m$par))))
   # print(paste('Target function value : ',as.character(f3(m$par))))
   return(m$par)
 }
@@ -260,7 +260,12 @@ mrs_predict <- function(result,test,train,h,type=1){
   weight <- c()
   ret_predict <- c()
   beta <- result$var_beta # VAR系数
-  sigma <- result$cov_error 
+  sigma <- result$cov_error
+  
+  est<- cal_sample(result$p,train[2:dim(train)[1]]) # 计算历史协方差
+  
+  SS <- est$S_est # sigma <- SSS
+  SS <- result$cov_error
   # 在1到n-1期每期进行均值方差预测，
   for (i in 1:(n-1))
   { 
@@ -277,6 +282,7 @@ mrs_predict <- function(result,test,train,h,type=1){
     # 计算当期状态概率
     p <- p_list[i,]%*%result$q  # q是转移概率矩阵
     # 贝叶斯更新当前状态概率
+    # print(sigma*10000)
     p_update <- gx(as.numeric(r),as.numeric(r_1),p,beta,sigma,h) # 更新概率
     # 记录
     p_list <- rbind(p_list,p_update) # 记录当天的p
@@ -294,7 +300,8 @@ mrs_predict <- function(result,test,train,h,type=1){
       # 在每个状态下进行均值方差模型预测
       ret_next_est <- t(beta[,,j])%*%c(as.numeric(r),1) # 根据VAR预测下一期收益率
       # S_est <- result$cov_error[,,j] +t(beta[1:m,1:m,j])%*%SS%*%beta[1:m,1:m,j]               # 4*4 根据状态获取协方差矩阵
-      S_est <- result$cov_error[,,j]             # 4*4 根据状态获取协方差矩阵
+      S_est <- SS[,,j]             # 4*4 根据状态获取协方差矩阵
+      # S_est <- S_est2[,,j]             # 4*4 根据状态获取协方差矩阵
       
       w <- weight_optimizer(S_est,ret_next_est,f1)
       weight_model <- weight_model + p_next[j]*w
@@ -303,16 +310,16 @@ mrs_predict <- function(result,test,train,h,type=1){
     }else if (type==2){
       # 对每个状态的均值和方差进行概率加权
       ret_next_est <- t(beta[,,1])%*%c(as.numeric(r),1)*p_next[1]
-      S_est <- result$cov_error[,,1]*p_next[1]                    
+      S_est <- SS[,,1]*p_next[1]                    
       
       for (j in (2:h))
       {
         ret_next_est <- ret_next_est + t(beta[,,j])%*%c(as.numeric(r),1)*p_next[j] 
-        S_est <- S_est + result$cov_error[,,j]*p_next[j]                    
+        S_est <- S_est + SS[,,j]*p_next[j]                    
       }     
       # 均值方差预测
-      S_est <- SS
-      weight_model <- weight_optimizer(S_est,ret_next_est,f1)
+      # S_est <- SS
+      weight_model <- weight_optimizer(S_est,ret_next_est,f2)
     }else if (type==3){
       # 对每个状态的协方差均值进行加权
       S_est <- result$cov_error[,,1]*p_next[1]
@@ -486,7 +493,8 @@ perf_analysis <- function(weight,asset_ret,cost=0.001,freq='w'){
   
   plot.zoo(xts(cbind(cum_ret_bf,cum_ret_af),index(asset_ret)),col=c('red','blue'))
   plot.zoo(xts(weight,index(asset_ret)))
-}
+  return(list(cum_ret_af=cum_ret_af,cum_ret_bf=cum_ret_bf,dd=drawdowns(timeSeries(ret_after_fee)),weight=weight))
+  }
 
 
 covar1 <- function(A, h){  #A 收益率矩阵
@@ -584,4 +592,30 @@ weight_cal <- function(h){
 #   }
 #   cov_long = c(cov_long, list(S))
 # }
+
+cal_sample <- function(p,ret){
+  # 计算各个状态加权历史协方差
+  t <- dim(p)[1]
+  m <- dim(ret)[2]             # 资产数量
+  h <- dim(p)[2]            # 状态数量
+  
+  p_sum <- apply(p,2,sum)
+  for (k in 1:t){
+    p[k,] <-p[k,]/p_sum
+  }
+  
+  S_est <- array(0,c(m,m,h))
+  mu_est <- matrix(0,m,h)
+  
+  for (i in 1:h){
+    mu_est[,i] <- t(apply(ret*p[,i]%*%matrix(1,1,m),2,sum))
+    rr_dm <- ret - t(mu_est[,i]%*%matrix(1,1,t))
+    
+    for (j in 1:t){
+      S0 <- t(rr_dm[j,])%*%rr_dm[j,]
+      S_est[,,i]<-S_est[,,i]+ S0*p[j,i]
+    }
+  }
+  return(list(S_est=S_est,mu_est=mu_est))
+}
 

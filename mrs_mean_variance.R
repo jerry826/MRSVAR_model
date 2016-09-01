@@ -1,75 +1,72 @@
-source('MRS.R')
+# author: Min Song, Jiayang Lv
+# contact: lvjy3.15@sem.tsinghua.edu.cn
+# file: mrs_mean_variance.R
+# time: 2016/9/1
 
-
+source('func.R')
 
 # Markow state VAR model
+
 w.start()
-# 设置时间变量
-start <- '2005-02-01'
-end <- '2016-08-16'
-mid <- '2013-08-01'
-freqs <- 'w'
 
-# 设置资产池
+# 1. 基本参数设置
+
+## 1.1 设置时间变量
+start <- '2005-02-01' # 训练集第一期
+end <- '2016-08-16'   # 测试集最后一期
+mid <- '2013-08-01'   # 训练集最后一期
+freq <- 'w' # 模型频率
+
+## 1.2 设置资产池
+assets <- c('000905.SH','037.CS')
 assets <- c('000300.SH','000905.SH','037.CS')
-assets <- c('000300.SH','000905.SH','037.CS','AU9999.SGE')
 
-
-
-# 提取数据 
+## 提取数据 
 ret_all <- collect_data(assets,start,end,mid,freqs)
 
-# mu <- apply(ret_all$train,2,mean)
-# std <- apply(ret_all$train,2,sd)
-# ret_all$train <- scale(ret_all$train)
-# ret_all$test <- scale(ret_all$test)
-# mu <- apply(ret_all$train,2,mean)
-# st <- apply(ret_all$train,2,sd)
-# for (i in 1:dim(ret_all$train)[1]){
-#   ret_all$train[i,] <- (ret_all$train[i,]-mu)/st
-# } 
-# for (i in 1:dim(ret_all$test)[1]){
-#   ret_all$test[i,] <- (ret_all$test[i,]-mu)/st
-# } 
-
-
-# 设置模型变量
+## 1.3 设置模型变量
 p <- 1 # 滞后阶数
-h <- 6 # 状态个数 
-# 训练模型
-result <- mrs_model((ret_all$train),p,h)
+h <- 5 # 状态个数 
+
+# 2. 训练模型输出MRS-VAR模型结果
+result <- mrs_model((ret_all$train),p,h,niterblkopt=20)
 
 
-# rr <- mrs_model(ret$train) # 样本内验证
+# 3. 模型资产配置最优化
+weight <- mrs_predict(result,ret_all$test,ret_all$train,h,1)
 
-# 模型权重最优化
-perf <- mrs_predict(result,ret_all$test,ret_all$train,h,1)
-
-# 仓位再优化
-weight2 <- adjust_weight(perf)
+# 4. 仓位再优化，减少调仓
+weight_adj <- adjust_weight(weight)
 
 
-# 表现分析
+# 5. 表现分析
 ## 
 n <- dim(ret_all$test)[1]
 ## 取2:n期的数据
 asset_ret <- ret_all$test_d[2:n]
 ## 分析
-perf_analysis(weight2$weight_adj,asset_ret ,cost=0.001,freq=freqs)
+model_ <- perf_analysis(weight_adj$weight_adj,asset_ret,cost=0.001,freq=freq)
 
 plot.zoo(result$p)
 
-mu = matrix(0,4,h)
+
+# 6. 其他结果输出
+
+
+## 6.1 计算各状态均值
+mu = matrix(0,length(assets),h)
 for (i in 1:h) {
   aa =t(result$var_beta[,,i])
-  mu[,i] = solve(diag(1,4)-aa[,1:4],aa[,5])
+  mu[,i] = solve(diag(1,length(assets))-aa[,1:length(assets)],aa[,length(assets)+1])
 }
-
+print('各个状态下资产的均值')
 print(mu)
 
 
-p_all = rbind(result$p, perf$p_list) #把概率全部拼起来
+## 6.2 计算每天各个状态的概率
 
+p_all = rbind(result$p, perf$p_list) #把概率全部拼起来
+plot.zoo(p_all)
 #找到最大概率对应的状态
 p_max = apply(p_all, 1, max)
 p_max_loc = rep(0, length(p_max))
@@ -85,3 +82,6 @@ for (j in 1:h) {
   t_loc = which(p_max_loc==j)
   time_loc =c(time_loc, list(t_loc))
 }
+
+
+

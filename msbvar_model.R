@@ -1,4 +1,11 @@
-source('MRS.R')
+# author: Min Song, Jiayang Lv
+# contact: lvjy3.15@sem.tsinghua.edu.cn
+# file: msbvar_model.R
+# time: 2016/9/1
+
+
+source('func.R')
+
 # Markow state VAR model
 w.start()
 # 设置时间变量
@@ -15,7 +22,7 @@ assets <- c('000300.SH','000905.SH','037.CS','AU9999.SGE')
 ret_all <- collect_data(assets,start,end,mid,freqs)
 
 
-set.seed(123)
+set.seed(12)
 
 mu <- apply(ret_all$train,2,mean)
 st <- apply(ret_all$train,2,sd)
@@ -33,8 +40,8 @@ names(dd) <- c('x1','x2','x3','x4')
 h=4
 
 xm <- msbvar(ts(ret_all$train), p=1, h=h,
-             lambda0=0.8, lambda1=0.1,
-             lambda3=2, lambda4=0.1, lambda5=0.01, mu5=5,
+             lambda0=0.8, lambda1=0.15,
+             lambda3=1, lambda4=0.2, lambda5=0.01, mu5=5,
              mu6=5, qm=12,max.iter =15)
 
 # Plot out the initial mode
