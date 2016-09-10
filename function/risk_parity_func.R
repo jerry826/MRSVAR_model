@@ -16,28 +16,41 @@ risk_parity2 <- function(id,date='2016-08-26',u_limit=rep(1,9),l_limit=rep(0,9),
   return(weight)
 }
 
-risk_parity3 <- function(id,risk_weight,date='2016-08-26',u_limit=rep(1,9),l_limit=rep(0,9),u_sigma=+Inf,l_sigma=-Inf,currency=FALSE,window=60,init=c(0)){
+risk_parity3 <- function(id,risk_weight,date='2016-08-26',u_limit=rep(1,9),l_limit=rep(0,9),u_sigma=+Inf,l_sigma=-Inf,currency=FALSE,path=NA,window=60,init=c(0)){
   window_str <- paste('ED-',as.character(window+10),'TD',sep='')
   # 两种数据读取方法
   ## Wind获取
-  # ret <- get_data2(start=window_str,end=date,currency=currency)
+  if (is.na(path)){
+  ret <- get_data2(start=window_str,end=date,currency=currency)
+  }else{
   ## 本地读取
-  dataset <- read.csv("C:/Users/lvjia/Documents/Code/R/MRSVAR_model/data/data0906.csv")
-  ret <- xts(dataset[,2:17],as.Date(dataset[,1]))
+  dataset <- read.csv(path)
+  ret <- xts(dataset[,2:dim(dataset)[2]],as.Date(dataset[,1]))
   end <- (w.tdaysoffset(-1,date))$Data[,1]
   start <- (w.tdaysoffset(-window,date))$Data[,1]  
   ret <- ret[paste(as.character(start),'/',as.character(end),sep=''),id]
-  
+  }
   # 计算协方差
   cov <- ew_var(ret)
   if (sum(init)!=1){
     init<-runif(dim(cov)[1],min=0,max=1)
   }
-  weight <- optimize_weight2(init,risk_weight,cov,u_limit,l_limit,u_sigma,l_sigma)
-  return(weight)
+  opt_result <- optimize_weight2(init,risk_weight,cov,u_limit,l_limit,u_sigma,l_sigma)
+  opt_result$ret <-  apply(ret*t((as.matrix(opt_result$weight)%*%matrix(1,1,dim(ret)[1]))),1,sum)
+  return(opt_result)
 }
 
-
+risk_parity4 <- function(ret,risk_weight,u_limit=rep(1,9),l_limit=rep(0,9),u_sigma=+Inf,l_sigma=-Inf,init=c(0)){
+  # 计算协方差
+  cov <- ew_var(ret)
+  if (sum(init)!=1){
+    init<-runif(dim(cov)[1],min=0,max=1)
+  }
+  opt_result <- optimize_weight2(init,risk_weight,cov,u_limit,l_limit,u_sigma,l_sigma)
+  opt_result$ret <-  apply(ret*t((as.matrix(opt_result$weight)%*%matrix(1,1,dim(ret)[1]))),1,sum)
+  return(opt_result)
+}
+# 新数据
 # 1.  H11137.CSI      中国互联网(美元)             Equity    2007-07-01
 # 2.  HSCEI.HI        恒生国企指数(港币)           Equity    2005-04-14
 # 3.  000016.SH       上证50                       Equity    2004-01-01
@@ -45,14 +58,18 @@ risk_parity3 <- function(id,risk_weight,date='2016-08-26',u_limit=rep(1,9),l_lim
 # 5.  000905.SH       中证500                      Equity    2005-01-04
 # 6.  000300.SH       沪深300                      Equity    2002
 
+# 14.  SPX.GI          标普500                     Equity    1966
+# 15.  IXIC.GI         纳斯达克指数                Equity    1971
+# 16.  GDAXI.GI        德国DAX                     Equity    1965
+
 # 7.  H11017.CSI      中期国债                     Bond      2008-01-01
 # 8.  H11078.CSI      中证中高信用                 Bond      2008-01-01
 # 9.  0401E.CS        中债固定利率全价(7-10)指数   Bond      2006-11-20
-# 14  070025.OF       嘉实信用A                    Bond      2011-09-14
+# 17  070025.OF       嘉实信用A                    Bond      2011-09-14
 # 10. 037.CS          中债总财富指数               Bond      2002-01-01
 
-# 15. 000198.OF       天弘余额宝                   Cash      2013-06-03
-# 16. 482002.OF       工银货币                     Cash      2006-03-26
+# 18. 000198.OF       天弘余额宝                   Cash      2013-06-03
+# 19. 482002.OF       工银货币                     Cash      2006-03-26
 
 # 11. CL.NYM NYMEX    原油(美元)                   Commodity 2011-12-21
 # 12. AU9999.SGE      黄金                         Commodity 2004-01-01
@@ -60,7 +77,7 @@ risk_parity3 <- function(id,risk_weight,date='2016-08-26',u_limit=rep(1,9),l_lim
 get_data2 <- function(start='2016-08-10',end='2016-08-26',currency=FALSE,type='continuous'){
   w.start()
   # 采用收盘价部分
-  sid1 <- "H11137.CSI,HSCEI.HI,000016.SH,399006.SZ,000905.SH,000300.SH,H11017.CSI,H11078.CSI,0401E.CS,037.CS,CL.NYM,AU9999.SGE,CCFI.WI"
+  sid1 <- "H11137.CSI,HSCEI.HI,000016.SH,399006.SZ,000905.SH,000300.SH,H11017.CSI,H11078.CSI,0401E.CS,037.CS,CL.NYM,AU9999.SGE,CCFI.WI,SPX.GI,IXIC.GI,GDAXI.GI"
   if (currency) {
     data1 <- (w.wsd(sid1,"close",start,end,"Fill=Previous;Currency=CNY"))$Data
   }else{
@@ -111,6 +128,29 @@ risk_budget <- function(date='2016-08-26',u_limit=rep(1,9),l_limit=rep(0,9),u_si
   return(weight)
 }
 
+asset_vol <- function(id,window_list=c(60),date='2016-08-26',path=NA){
+  for (i in 1:length(window_list)){
+  window <- window_list[i]
+  # 两种数据读取方法
+  ## Wind获取
+  if (is.na(path)){
+    window_str <- paste('ED-',as.character(window+10),'TD',sep='')
+    ret <- get_data2(start=window_str,end=date,currency=currency)
+  }else{
+    ## 本地读取
+    dataset <- read.csv(path)
+    ret <- xts(dataset[,2:dim(dataset)[2]],as.Date(dataset[,1]))
+    end <- (w.tdaysoffset(-1,date))$Data[,1]
+    start <- (w.tdaysoffset(-window,date))$Data[,1]  
+    ret <- ret[paste(as.character(start),'/',as.character(end),sep=''),id]
+  }
+  
+  # 计算协方差
+  print(paste('Annualized asset volatility for ',as.character(window),' days (%):',sep=''))
+  cov <- ew_var(ret)
+  print(as.numeric(round(sqrt(diag(cov)*10000*252),2)))
+  }
+}
 
 
 get_data <- function(start='2016-08-10',end='2016-08-26',currency=FALSE,type='continuous'){
@@ -216,11 +256,11 @@ optimize_weight2 <- function(init,risk_weight,cov,u_limit,l_limit,u_sigma=+Inf,l
     return(sqrt((w%*%S*10000)%*%w)*sqrt(252)) #年化波动率
   }
   nlin.l = c(l_sigma)  ; nlin.u = c(u_sigma)  #目标年化波动率
-  
   # 更改变量属性
   S <<- cov
   rw <<- risk_weight
   # 随机初始化参数
+  asset_vol <- as.numeric(round(sqrt(diag(S)*10000*252),4))
   
   # 模型优化
   m <- donlp2(init,f2,par.u=par.u,par.l=par.l,A,lin.l=lin.l,lin.u=lin.u,
@@ -228,10 +268,16 @@ optimize_weight2 <- function(init,risk_weight,cov,u_limit,l_limit,u_sigma=+Inf,l
               nlin.u = nlin.u, nlin.l=nlin.l,control = donlp2Control())
   # 返回结果
   print(paste('Volatility returned : ', as.character(round(nlcon1(m$par),3))))
-  print(paste('Target function value : ',as.character(round(f2(m$par),3))))
+  # print(paste('Target function value : ',as.character(round(f2(m$par),3))))
+  print('Asset weight allocation :')
+  
+  print(round(m$par,2))
   print('Risk weight returned : ' )
   print(round(as.numeric(rr(m$par,S)),2))
-  return(list(weight=m$par,risk_weight=rr(m$par,S),error=f2(m$par)))
+  print('Asset volatility (%): ')
+  print(asset_vol)
+  print(paste('ERROR : ',as.character(f2(m$par)),sep=''))
+  return(list(weight=m$par,risk_weight=rr(m$par,S),error=f2(m$par),asset_vol=asset_vol))
 }
 
 
