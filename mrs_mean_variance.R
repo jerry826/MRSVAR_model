@@ -2,11 +2,25 @@
 # contact: lvjy3.15@sem.tsinghua.edu.cn
 # file: mrs_mean_variance.R
 # time: 2016/9/1
-
-source('func.R')
-
-# Markow state VAR model
-
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# ========  markov regime switch model  ===============================
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#初始化
+# source("Default/Index.R")
+setwd("~/Code/R/")
+source('MRSVAR_model/mrs_func.R',encoding='utf-8')
+source('QuantFunction/basic_func.R',encoding='utf-8')
+library(MSBVAR)
+library(WindR)
+library(xts)
+library(TTR)
+library(expm)
+library(Rdonlp2)
+library(mvtnorm)
+library(zoo)
+library(vars)
+library(fBasics)
+library(TTR)
 w.start()
 
 # 1. 基本参数设置
@@ -14,15 +28,15 @@ w.start()
 ## 1.1 设置时间变量
 start <- '2005-02-01' # 训练集第一期
 end <- '2016-08-16'   # 测试集最后一期
-mid <- '2013-08-01'   # 训练集最后一期
-freq <- 'w' # 模型频率
+mid <- '2016-08-01'   # 训练集最后一期
+freq <- 'm' # 模型频率
 
 ## 1.2 设置资产池
 assets <- c('000905.SH','037.CS')
 assets <- c('000300.SH','000905.SH','037.CS')
 
 ## 提取数据 
-ret_all <- collect_data(assets,start,end,mid,freqs)
+ret_all <- collect_data(assets,start,end,mid,freq)
 
 ## 1.3 设置模型变量
 p <- 1 # 滞后阶数
@@ -36,7 +50,7 @@ result <- mrs_model((ret_all$train),p,h,niterblkopt=20)
 weight <- mrs_predict(result,ret_all$test,ret_all$train,h,1)
 
 # 4. 仓位再优化，减少调仓
-weight_adj <- adjust_weight(weight)
+weight_adj <- adjust_weight(weight$weight)
 
 
 # 5. 表现分析

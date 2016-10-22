@@ -1,16 +1,42 @@
 # 
+mrs_signal <- function(dt='2016-08-16',id=c(5,6,10),h=5,lag=1,path="MRSVAR_model/input/data_c.csv"){
+  num <- length(id)
+  dataset <- read.csv(path)
+  ret <- xts(dataset[,2:dim(dataset)[2]],as.Date(dataset[,1]))
+  
+  end <- (w.tdaysoffset(-1,dt,'Period=W'))$Data[,1]
+  start <- (w.tdaysoffset(-9,dt,'Period=Y'))$Data[,1]  
+  ret <- ret[paste(as.character(start),'/',as.character(end),sep=''),id]
+  print(paste(as.character(start),'/',as.character(end),sep=''))
+  dataset1 <- apply.weekly(ret,colSums)
+  dataset1 <- dataset1[(dim(dataset1)[1]-420):dim(dataset1)[1],]
+  
+  mrs_result <- mrs_model(dataset1,rlag=lag,h=h,niterblkopt=15)
+  
+  p_last <- mrs_result$p[dim(mrs_result$p)[1],]
+  p_next <- t(p_last)%*%mrs_result$q
+  
+  ret_last <- dataset1[dim(dataset1)[1],]
+  ret_next_est <- rep(0,num)
+  w1 <- rep(0,num)
+  S_next_est <- matrix(0,num,num)
+  for (j in (1:h))
+  {
+    ret_next_est <- ret_next_est + t(mrs_result$var_beta[,,j])%*%c(as.numeric(ret_last),1)*p_next[j]
+    r0 <- t(mrs_result$var_beta[,,j])%*%c(as.numeric(ret_last),1)*p_next[j]
+    S0 <- mrs_result$cov_error[,,j]
+    w0 <-   weight_optimizer(S0,r0,f1)
+    S_next_est <- S_next_est+S0*p_next[j]
+    w1 <- w1+w0*p_next[j]
+    print(ret_next_est)
+  }
+  w2 <- weight_optimizer(S_next_est,ret_next_est,f1)
+  # signal <- rank(ret_next_est)
+  return(output=c(w1,w2,ret_next_est,p_next))
+  # return(ret_next_est=as.numeric(ret_next_est))
+  
+}  
 
-library(MSBVAR)
-library(WindR)
-library(xts)
-library(TTR)
-library(expm)
-library(Rdonlp2)
-library(mvtnorm)
-library(zoo)
-library(vars)
-library(fBasics)
-library(TTR)
 
 collect_data <- function(assets,start='2010-01-01',end='2016-08-16',mid='2015-01-01',freq='w'){
   
@@ -52,6 +78,38 @@ collect_data <- function(assets,start='2010-01-01',end='2016-08-16',mid='2015-01
   
   return(list(train=train,test=test,raw_p=dataset,train_d=train_d,test_d=test_d ) )
 }
+
+get_data2 <- function(start='2016-08-10',end='2016-08-26',currency=FALSE,type='continuous'){
+  w.start()
+  # 采用收盘价部分
+  sid1 <- "H11137.CSI,HSCEI.HI,000016.SH,399006.SZ,000905.SH,000300.SH,H11017.CSI,H11078.CSI,0401E.CS,037.CS,CL.NYM,AU9999.SGE,CCFI.WI,SPX.GI,IXIC.GI,GDAXI.GI"
+  if (currency) {
+    data1 <- (w.wsd(sid1,"close",start,end,"Fill=Previous;Currency=CNY"))$Data
+  }else{
+    data1 <- (w.wsd(sid1,"close",start,end,"Fill=Previous"))$Data
+  }
+  # 采用万份净值部分
+  sid2 <- "000198.OF,482002.OF"
+  data2 <- (w.wsd(sid2,"mmf_unityield",start,end,"Fill=Previous"))$Data
+  names(data2) <- c('TIME',sid2)
+  # 采用基金净值部分
+  sid3 <- "070025.OF"
+  data3 <- (w.wsd(sid3,"nav",start,end,"Fill=Previous"))$Data
+  # names(data3) <- c('TIME',sid3)
+  # 数据整合
+  dataset <- cbind(data1,data3[,2:dim(data3)[2]])
+  names(dataset) <- c('TIME',unlist(strsplit(sid1,split=',')),unlist(strsplit(sid3,split=',')))
+  # 计算收益率
+  ret <- ROC(xts(dataset[,2:dim(dataset)[2]],dataset[,1]),type=c(type))
+  
+  # names(data2) <- c('TIME',unlist(strsplit(sid2,split=',')))
+  temp <- xts(data2[,2:dim(data2)[2]],data2[,1])*365/(10000*252)
+  ret2 <- merge(ret,temp)
+  ret2 <- ret2[2:dim(ret2)[1],]
+  names(ret2) <- c(unlist(strsplit(sid1,split=',')),unlist(strsplit(sid3,split=',')),unlist(strsplit(sid2,split=',')))
+  return(ret2)
+}
+
 
 mrs_model <- function(ret,rlag=1,h=5,niterblkopt=30){
   # 输入多元时间序列，训练模型
@@ -181,7 +239,7 @@ weight_optimizer <- function(S0,r0,f){
   nlcon1 = function(w){
     return(sqrt((w%*%S*10000)%*%w)*sqrt(52)) #年化波动率
   }
-  nlin.l = c(14)  ; nlin.u = c(14.1)  #目标年化波动率
+  nlin.l = c(4)  ; nlin.u = c(4)  #目标年化波动率
   
   # 更改变量属性
   S <<- S0
@@ -198,27 +256,7 @@ weight_optimizer <- function(S0,r0,f){
   return(m$par)
 }
 
-# weight_optimizer_3 <- function(S0){
-#   n = dim(S0)[1]
-#   par.l = rep(0,n)
-#   par.u = rep(1,n)
-#   A = matrix(rep(1,n),1)
-#   lin.l = c(1)
-#   lin.u = c(1)
-#   
-#   S <<- S0*10000
-# 
-#   
-# 
-#   
-#   m = donlp2(runif(n,min=0,max=1), f3, par.u=par.u, par.l=par.l,
-#                A,　lin.l=lin.l,lin.u=lin.u,  
-#                nlin=  list(nlcon1) ,        #list(nlcon1,nlcon2), 
-#                nlin.u = nlin.u, nlin.l=nlin.l,control = donlp2Control())
-#   print(nlcon1(m$par))
-#   
-#   return(m$par)
-# } 
+
 
 
 gx <- function(r,r_1,p,beta,sigma,h){
